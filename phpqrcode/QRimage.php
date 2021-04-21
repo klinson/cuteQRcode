@@ -36,7 +36,6 @@ class QRimage
     //----------------------------------------------------------------------
     public static function png($frame, $filename = false, $pixelPerPoint, $outerFrame = 5, $saveandprint = false, $mode, $other, $alpha)
     {
-        self::$outputFile = $filename;
         $mode = strtolower($mode);
         switch ($mode) {
             case 'normal':
@@ -63,12 +62,15 @@ class QRimage
 //            header("Content-type: image/png");
 //            ImagePng($image);
 //        } else {
-        if (!($background instanceof \Imagick)) {
-            ImagePng($image, $filename);
+        if (!($image instanceof \Imagick)) {
+            $res = self::outputImage($image, $filename);
+            return $image;
+        } else {
+//            $image->writeImageFile(fopen($filename, "wb")); //also works
+            $image->writeImage($filename);
             return $image;
         }
 //        }
-        ImageDestroy($image);
     }
 
     //----------------------------------------------------------------------
@@ -177,12 +179,37 @@ class QRimage
             }
         }
 
-        $target_image = ImageCreate($imgW * self::$magSize, $imgH * self::$magSize);
-        ImageCopyResized($target_image, $base_image, 0, 0, 0, 0, $imgW * self::$magSize + 2 * $outerFrame, $imgH * self::$magSize + 2 * $outerFrame, $imgW, $imgH);
-        ImageDestroy($base_image);
-        self::$tempQRcode = 'temp' . DIRECTORY_SEPARATOR.'tempQRcode'.DIRECTORY_SEPARATOR.basename(self::$outputFile);
-        ImagePng($target_image, self::$tempQRcode);
+        $target_image = imagecreate($imgW * self::$magSize, $imgH * self::$magSize);
+        imagecopyresized($target_image, $base_image, 0, 0, 0, 0, $imgW * self::$magSize + 2 * $outerFrame, $imgH * self::$magSize + 2 * $outerFrame, $imgW, $imgH);
+        imagedestroy($base_image);
+        $tempQRcodePath = 'temp' . DIRECTORY_SEPARATOR.'tempQRcode'.DIRECTORY_SEPARATOR.md5(uniqid()).'.png';
+        imagepng($target_image, $tempQRcodePath);
+//        self::outputImage($target_image, self::$tempQRcode);
         return self::imageMerage($target_image, $backGroundPath);
+    }
+
+    public static function outputImage($resource, $filename)
+    {
+        $ext = pathinfo($filename,PATHINFO_EXTENSION);
+        var_dump($ext);
+        switch($ext){
+            case 'jpg':
+            case 'jpeg':
+            case 'jpe':
+                $res = imagejpeg($resource, $filename);
+                break;
+            case 'png':
+                $res = imagepng($resource, $filename);
+                break;
+            case 'gif':
+                $res = imagegif($resource, $filename);
+                break;
+            case 'bmp':
+            case 'wbmp':
+                $res = imagewbmp($resource, $filename);
+                break;
+        }
+        return $res;
     }
 
     private static function createImage($image)
@@ -233,7 +260,6 @@ class QRimage
             //     $qrcode->compositeImage($targetQRcode,\Imagick::COMPOSITE_DEFAULT,0,0);
             // } while ($qrcode->nextImage());
             $background = $background->deconstructImages();             
-            $background->writeImages(self::$outputFile, true);
         } else{
             imagecopyResized($background, $targetQRcode, 0, 0, 0, 0, imagesx($background), imagesy($background), self::$qrcodesW, self::$qrcodesH);
         }
